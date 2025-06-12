@@ -23,3 +23,21 @@ sysinfo.txt
 # OS files
 .DS_Store
 Thumbs.db
+
+# Ignore build files
+*.apk
+*.ipa
+*.unitypackage
+*.mp4
+*.wav
+*.ogg
+*.zip
+
+# Unity specific
+Library/
+Temp/
+Obj/
+Build/
+Builds/
+Logs/
+MemoryCaptures/
