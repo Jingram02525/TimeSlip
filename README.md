@@ -29,3 +29,38 @@
    ```bash
    git clone https://github.com/your-username/timeslip.git
    cd timeslip
+2. Open the project in Unity (2022.3.x or later recommended).
+
+3. Switch to your mobile platform (Android/iOS) in Build Settings.
+
+4. Build and run on a device to test.
+
+🎮 Controls
+Action	Input
+Move Drone	Drag in any direction
+Activate TimeSlip	Drag beyond threshold radius
+
+📦 Dependencies
+Unity Input System
+
+Universal Render Pipeline (URP)
+
+Adaptive Performance Package (for mobile performance tuning)
+
+🛠️ Roadmap
+ Basic vertical movement
+
+ TimeSlip activation
+
+ Obstacle spawning system
+
+ Add visual effects for TimeSlip
+
+ Sound design
+
+ Game over and scoring system
+
+ Main menu and settings
+
+📄 License
+This project is currently private and not licensed for redistribution.
