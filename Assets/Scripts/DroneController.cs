@@ -19,6 +19,7 @@ public class DroneController : MonoBehaviour
     {
         mainCam = Camera.main;
         Time.timeScale = normalTimeScale;
+        
     }
 
     void Update()
