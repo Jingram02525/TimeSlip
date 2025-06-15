@@ -10,16 +10,25 @@ public class DroneController : MonoBehaviour
     public float slowTimeScale = 0.3f;
     public float normalTimeScale = 1f;
 
+    [Header("Time Fuel")]
+    public float maxFuel = 100f;
+    public float currentFuel = 100f;
+    public float fuelDrainRate = 25f;    // units per second
+    public float fuelRechargeRate = 15f; // units per second
+    private bool timeSlipping = false;
+
     private Vector2 initialTouchPos;
     private Vector2 currentTouchPos;
-    private bool isTouching = false;
     private Camera mainCam;
+    private TimeFuelUI fuelUI;
+    private TimeSlipVisual timeSlipVisual;
 
     void Start()
     {
         mainCam = Camera.main;
         Time.timeScale = normalTimeScale;
-        
+        fuelUI = FindFirstObjectByType<TimeFuelUI>();
+        timeSlipVisual = FindFirstObjectByType<TimeSlipVisual>();
     }
 
     void Update()
@@ -29,77 +38,123 @@ public class DroneController : MonoBehaviour
 
         // Handle directional input + TimeSlip logic
         HandleTouchInput();
+        ClampToViewport();
+        ManageFuel(); // NEW
     }
 
-    void HandleTouchInput()
+    void ClampToViewport()
     {
+        Vector3 pos = Camera.main.WorldToViewportPoint(transform.position);
+        pos.x = Mathf.Clamp01(pos.x);
+        pos.y = Mathf.Clamp01(pos.y);
+        transform.position = Camera.main.ViewportToWorldPoint(pos);
+    }
+
+   void HandleTouchInput()
+{
 #if UNITY_EDITOR
-        // Mouse input for testing in the Unity Editor
-        if (Input.GetMouseButtonDown(0))
-        {
-            isTouching = true;
-            initialTouchPos = Input.mousePosition;
-        }
-        else if (Input.GetMouseButton(0))
-        {
-            currentTouchPos = Input.mousePosition;
+    if (Input.GetMouseButtonDown(0))
+    {
+        initialTouchPos = Input.mousePosition;
+    }
+    else if (Input.GetMouseButton(0))
+    {
+        currentTouchPos = Input.mousePosition;
 
-            Vector2 dragVector = currentTouchPos - initialTouchPos;
-            float dragDistance = dragVector.magnitude;
-            Vector2 moveDirection = dragVector.normalized;
+        Vector2 dragVector = currentTouchPos - initialTouchPos;
+        float dragDistance = dragVector.magnitude;
+        Vector2 moveDirection = dragVector.normalized;
 
-            Vector2 forward = Vector2.up;
-            Vector2 combinedMove = (forward + moveDirection).normalized;
+        transform.Translate(moveDirection * moveSpeed * Time.deltaTime);
 
-            transform.Translate(combinedMove * moveSpeed * Time.deltaTime);
-
-            Time.timeScale = (dragDistance > slipThreshold) ? slowTimeScale : normalTimeScale;
-        }
-        else if (Input.GetMouseButtonUp(0))
-        {
-            isTouching = false;
-            Time.timeScale = normalTimeScale;
-        }
-#else
-        // Touch input for mobile builds
-        if (Input.touchCount > 0)
-        {
-            Touch touch = Input.GetTouch(0);
-            Vector2 screenPos = touch.position;
-
-            switch (touch.phase)
+            if (dragDistance > slipThreshold && currentFuel > 0)
             {
-                case TouchPhase.Began:
-                    isTouching = true;
-                    initialTouchPos = screenPos;
-                    break;
-
-                case TouchPhase.Moved:
-                case TouchPhase.Stationary:
-                    currentTouchPos = screenPos;
-                    Vector2 dragVector = currentTouchPos - initialTouchPos;
-                    float dragDistance = dragVector.magnitude;
-                    Vector2 moveDirection = dragVector.normalized;
-
-                    Vector2 forward = Vector2.up;
-                    Vector2 combinedMove = (forward + moveDirection).normalized;
-
-                    transform.Translate(combinedMove * moveSpeed * Time.deltaTime);
-
-                    Time.timeScale = (dragDistance > slipThreshold) ? slowTimeScale : normalTimeScale;
-                    break;
-
-                case TouchPhase.Ended:
-                case TouchPhase.Canceled:
-                    isTouching = false;
-                    Time.timeScale = normalTimeScale;
-                    break;
+                timeSlipping = true;
+                Time.timeScale = slowTimeScale;
+                timeSlipVisual?.ShowEffect();
             }
-        }
-        else
+            else
+            {
+                timeSlipping = false;
+                Time.timeScale = normalTimeScale;
+                timeSlipVisual?.HideEffect();
+            }
+    }
+    else if (Input.GetMouseButtonUp(0))
+    {
+        timeSlipping = false;
+        Time.timeScale = normalTimeScale;
+    }
+#else
+    if (Input.touchCount > 0)
+    {
+        Touch touch = Input.GetTouch(0);
+        Vector2 screenPos = touch.position;
+
+        switch (touch.phase)
         {
-            Time.timeScale = normalTimeScale;
+            case TouchPhase.Began:
+                initialTouchPos = screenPos;
+                break;
+
+            case TouchPhase.Moved:
+            case TouchPhase.Stationary:
+                currentTouchPos = screenPos;
+                Vector2 dragVector = currentTouchPos - initialTouchPos;
+                float dragDistance = dragVector.magnitude;
+                Vector2 moveDirection = dragVector.normalized;
+
+                transform.Translate(moveDirection * moveSpeed * Time.deltaTime);
+
+                if (dragDistance > slipThreshold && currentFuel > 0)
+                {
+                    timeSlipping = true;
+                    Time.timeScale = slowTimeScale;
+                    timeSlipVisual?.ShowEffect();
+                }
+                else
+                {
+                    timeSlipping = false;
+                    Time.timeScale = normalTimeScale;
+                    timeSlipVisual?.HideEffect();
+                }
+                break;
+
+            case TouchPhase.Ended:
+            case TouchPhase.Canceled:
+                timeSlipping = false;
+                Time.timeScale = normalTimeScale;
+                timeSlipVisual?.HideEffect();
+                break;
         }
+    }
+    else
+    {
+        timeSlipping = false;
+        Time.timeScale = normalTimeScale;
+    }
 #endif
+}
+
+
+    void ManageFuel()
+    {
+        Debug.Log(currentFuel);
+        if (timeSlipping && currentFuel > 0)
+        {
+            currentFuel -= fuelDrainRate * Time.unscaledDeltaTime;
+            currentFuel = Mathf.Max(0f, currentFuel);
+        }
+        else if (!timeSlipping)
+        {
+            currentFuel += fuelRechargeRate * Time.unscaledDeltaTime;
+            currentFuel = Mathf.Min(maxFuel, currentFuel);
+        }
+
+        //Update fuel bar UI
+        if (fuelUI != null)
+        {
+            fuelUI.SetFuel(currentFuel / maxFuel); // normalized value between 0 and 1
+        }
     }
 }
